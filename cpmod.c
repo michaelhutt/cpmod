@@ -12,24 +12,6 @@
 #include <errno.h>
 #include <dirent.h>
 
-void printRwx(unsigned int perm, char pos) {
-    unsigned int tPerm;
-    switch(tolower(pos)) {
-    case 'u':
-	tPerm = (perm&S_IRWXU)>>6;
-	break;
-    case 'g':
-	tPerm = (perm&S_IRWXG)>>3;
-	break;
-    default:
-	tPerm = (perm&S_IRWXO);
-    }
-    printf("%c%c%c",
-	   (tPerm&4)!=0?'r':'-',
-	   (tPerm&2)!=0?'w':'-',
-	   (tPerm&1)!=0?'x':'-'
-	   );
-}
 
 void printFullPerms(unsigned int perm) {
     unsigned int tPerm;
@@ -127,6 +109,7 @@ void printUsage(FILE *stream, const char *cmd) {
 }
 
 int main(int argc, char **argv) {
+    /* TODO: convert to arg handling to getopts. */
     char *filename;
     int recurse = 0;
     int i = 1;
