@@ -169,47 +169,27 @@ fn permission_string(perm: u32) -> String {
             2 => 'r',
             _ => 'E',
         };
-        perm_string.push(if (perm & 2u32.pow(i)) != 0 {
-            mode_letter
-        } else {
-            '-'
-        });
+
+        let permission_active = (perm & 2u32.pow(i)) != 0;
+        perm_string.push(if permission_active { mode_letter } else { '-' });
     }
 
     // handle setuid
     if (perm & S_ISUID) != 0 {
-        perm_string.replace_range(
-            3..4,
-            if perm_string.chars().nth(3).unwrap() == 'x' {
-                "s"
-            } else {
-                "S"
-            },
-        );
+        let xchar = perm_string.chars().nth(3).unwrap() == 'x';
+        perm_string.replace_range(3..4, if xchar { "s" } else { "S" });
     }
 
     // handle setgid
     if (perm & S_ISGID) != 0 {
-        perm_string.replace_range(
-            6..7,
-            if perm_string.chars().nth(6).unwrap() == 'x' {
-                "s"
-            } else {
-                "S"
-            },
-        );
+        let xchar = perm_string.chars().nth(6).unwrap() == 'x';
+        perm_string.replace_range(6..7, if xchar { "s" } else { "S" });
     }
 
     //handle sticky bit
     if (perm & S_ISVTX) != 0 {
-        perm_string.replace_range(
-            9..10,
-            if perm_string.chars().nth(9).unwrap() == 'x' {
-                "t"
-            } else {
-                "T"
-            },
-        );
+        let xchar = perm_string.chars().nth(9).unwrap() == 'x';
+        perm_string.replace_range(9..10, if xchar { "t" } else { "T" });
     }
 
     // Note: the trailing dot/plus/at-sign in `ls` output indicates se-linux context or ACLs apply.
