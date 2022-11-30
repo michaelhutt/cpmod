@@ -121,9 +121,10 @@ fn modcopy(
 
     let _pcopy = perms.clone();
     // TODO: check the result here...
-    //fs::set_permissions(filename, perms);
-
-    println!("[ {} ]", permission_string(_pcopy.mode()));
+    match fs::set_permissions(filename, perms) {
+        Ok(_x) => println!("[ {} ]", permission_string(_pcopy.mode())),
+        Err(x) => println!("Error: {x}"),
+    }
 
     if recurse && path::Path::new(filename).is_dir() {
         todo!("directory found, no recursion");
@@ -159,36 +160,59 @@ fn get_mask_and_shift(spec: &str) -> Result<(u32, u32), String> {
 }
 
 fn permission_string(perm: u32) -> String {
-	let mut perm_string = String::with_capacity(11);
-	perm_string.push(if (perm & S_IFDIR) != 0 { 'd' } else { '-' });
-	for i in (0u32..9).rev() {
-		let mode_letter = match i % 3 {
-			0 => 'x',
-			1 => 'w',
-			2 => 'r',
-			_ => 'E'
-		};
-		perm_string.push(if (perm & 2u32.pow(i)) != 0 { mode_letter } else { '-' });
-	}
+    let mut perm_string = String::with_capacity(10);
+    perm_string.push(if (perm & S_IFDIR) != 0 { 'd' } else { '-' });
+    for i in (0u32..9).rev() {
+        let mode_letter = match i % 3 {
+            0 => 'x',
+            1 => 'w',
+            2 => 'r',
+            _ => 'E',
+        };
+        perm_string.push(if (perm & 2u32.pow(i)) != 0 {
+            mode_letter
+        } else {
+            '-'
+        });
+    }
 
-	// TODO: figure out what this dot is
-	perm_string.push('.');
+    // handle setuid
+    if (perm & S_ISUID) != 0 {
+        perm_string.replace_range(
+            3..4,
+            if perm_string.chars().nth(3).unwrap() == 'x' {
+                "s"
+            } else {
+                "S"
+            },
+        );
+    }
 
-	// handle setuid
-	if (perm & S_ISUID) != 0 {
-		perm_string.replace_range(3..4, if perm_string.chars().nth(3).unwrap() == 'x' { "s" } else { "S" });
-	}
+    // handle setgid
+    if (perm & S_ISGID) != 0 {
+        perm_string.replace_range(
+            6..7,
+            if perm_string.chars().nth(6).unwrap() == 'x' {
+                "s"
+            } else {
+                "S"
+            },
+        );
+    }
 
-	// handle setgid
-	if (perm & S_ISGID) != 0 {
-		perm_string.replace_range(6..7, if perm_string.chars().nth(6).unwrap() == 'x' { "s" } else { "S" });
-	}
+    //handle sticky bit
+    if (perm & S_ISVTX) != 0 {
+        perm_string.replace_range(
+            9..10,
+            if perm_string.chars().nth(9).unwrap() == 'x' {
+                "t"
+            } else {
+                "T"
+            },
+        );
+    }
 
-	//handle sticky bit
-	if (perm & S_ISVTX) != 0 {
-		perm_string.replace_range(9..10, if perm_string.chars().nth(9).unwrap() == 'x' { "t" } else { "T" });
-	}
+    // Note: the trailing dot/plus/at-sign in `ls` output indicates se-linux context or ACLs apply.
 
-
-	return perm_string
+    return perm_string;
 }
