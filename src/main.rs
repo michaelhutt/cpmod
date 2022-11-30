@@ -1,5 +1,14 @@
 // modcopy - main.rs
 
+/*
+ * The standard chmod utility has all of this functionality. You just use the equals operator, ie `chmod g=u FILE` to copy
+ * the file bits from the user to the group. Easy peasy.
+ *
+ * So, what's the point of this? Well, before I knew that functionality existed I built this tool in C and now it's in
+ * my muscle memory (and some scripts). This seemed like a good exercise for learning Rust, instead of doing a throwaway
+ * problem.
+ */
+
 use std::collections::VecDeque;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -57,7 +66,7 @@ fn main() {
 }
 
 fn print_usage() {
-    eprintln!("Usage: modcopy [-r] FROM-TO FILE [FILE...]");
+    eprintln!("Usage: cpmod [-r] FROM-TO FILE [FILE...]");
 }
 
 fn print_full_usage() {
@@ -117,7 +126,7 @@ fn modcopy(
     println!("[ {} ]", permission_string(_pcopy.mode()));
 
     if recurse && path::Path::new(filename).is_dir() {
-        println!("it's a directory!");
+        todo!("directory found, no recursion");
     }
     Ok(())
 }
@@ -150,21 +159,36 @@ fn get_mask_and_shift(spec: &str) -> Result<(u32, u32), String> {
 }
 
 fn permission_string(perm: u32) -> String {
-    let user_perm = ((perm & S_IRWXU) >> 6) as u8;
-    let group_perm = ((perm & S_IRWXG) >> 3) as u8;
-    let other_perm = (perm & S_IRWXO) as u8;
+	let mut perm_string = String::with_capacity(11);
+	perm_string.push(if (perm & S_IFDIR) != 0 { 'd' } else { '-' });
+	for i in (0u32..9).rev() {
+		let mode_letter = match i % 3 {
+			0 => 'x',
+			1 => 'w',
+			2 => 'r',
+			_ => 'E'
+		};
+		perm_string.push(if (perm & 2u32.pow(i)) != 0 { mode_letter } else { '-' });
+	}
 
-    // gross
-    return format!(
-        "{}{}{}{}{}{}{}{}{}",
-        if (user_perm & 4) != 0 { "r" } else { "-" },
-        if (user_perm & 2) != 0 { "w" } else { "-" },
-        if (user_perm & 1) != 0 { "x" } else { "-" },
-        if (group_perm & 4) != 0 { "r" } else { "-" },
-        if (group_perm & 2) != 0 { "w" } else { "-" },
-        if (group_perm & 1) != 0 { "x" } else { "-" },
-        if (other_perm & 4) != 0 { "r" } else { "-" },
-        if (other_perm & 2) != 0 { "w" } else { "-" },
-        if (other_perm & 1) != 0 { "x" } else { "-" }
-    );
+	// TODO: figure out what this dot is
+	perm_string.push('.');
+
+	// handle setuid
+	if (perm & S_ISUID) != 0 {
+		perm_string.replace_range(3..4, if perm_string.chars().nth(3).unwrap() == 'x' { "s" } else { "S" });
+	}
+
+	// handle setgid
+	if (perm & S_ISGID) != 0 {
+		perm_string.replace_range(6..7, if perm_string.chars().nth(6).unwrap() == 'x' { "s" } else { "S" });
+	}
+
+	//handle sticky bit
+	if (perm & S_ISVTX) != 0 {
+		perm_string.replace_range(9..10, if perm_string.chars().nth(9).unwrap() == 'x' { "t" } else { "T" });
+	}
+
+
+	return perm_string
 }
